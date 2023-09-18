@@ -1,22 +1,9 @@
-import { GalleryItem, GalleryImage } from "./ImageGalleryItem.styled";
+import { GalleryItem, GalleryImage } from './ImageGalleryItem.styled';
 
-export default function ImageGalleryItem({
-  url,
-  tag,
-  toggleModal,
-  onImageClick,
-}) {
+export default function ImageGalleryItem({ src, onImageClick, modalImage }) {
   return (
-    <GalleryItem>
-      <GalleryImage
-        src={url}
-        alt={tag}
-        onClick={() => {
-          toggleModal();
-          onImageClick();
-        }}
-      />
+    <GalleryItem onClick={() => onImageClick(modalImage)}>
+      <GalleryImage src={src} alt="" />
     </GalleryItem>
   );
 }
-

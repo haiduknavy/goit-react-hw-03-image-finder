@@ -1,108 +1,91 @@
-import { Notify } from "notiflix/build/notiflix-notify-aio";
-import { Loading } from "notiflix/build/notiflix-loading-aio";
-import { Component } from "react";
-import fetchGallery from "../../api/api";
-import Searchbar from "../Searchbar/Searchbar";
-import ImageGallery from "../ImageGallery/ImageGallery";
-import Button from "../Button/Button";
-import Modal from "../Modal/Modal";
-import { AppWrap } from "./App.styled";
+import Loader from 'Components/Loader/Loader';
+import { Component } from 'react';
+import fetchGallery from '../../api/api';
+import Searchbar from '../Searchbar/Searchbar';
+import ImageGallery from '../ImageGallery/ImageGallery';
+import Button from '../Button/Button';
+import Modal from '../Modal/Modal';
+import { AppWrap } from './App.styled';
 
 export default class App extends Component {
   state = {
-    inputQuerry: "",
+    searchQuery: '',
     page: 1,
-    status: "idle",
-    gallery: [],
-    error: null,
-    modalImg: null,
+    images: [],
+    loading: false,
     showModal: false,
+    modalImage: '',
   };
 
-  componentDidUpdate(prevProps, prevState) {
-    const { inputQuerry, page } = this.state;
-    if (prevState.inputQuerry !== inputQuerry) {
-      this.setState({ status: "pending" });
-
-      fetchGallery(inputQuerry, page)
-        .then((data) => data.hits)
-        .then((response) => {
-          if (response.length === 0) {
-            Notify.failure("Sorry, we couldn't find any matches", {
-              position: "center-center",
-              fontSize: "24px",
-              timeout: 2500,
-              width: "30%",
-            });
-            Loading.remove();
-          } else {
-            this.setState({ gallery: response, status: "resolved" });
-          }
-        });
+  componentDidUpdate(prevProps, { searchQuery, page }) {
+    if (searchQuery !== this.state.searchQuery || page !== this.state.page) {
+      this.searchImg(searchQuery, page);
     }
-    if (prevState.page !== page && page !== 1) {
-      this.setState({ status: "pending" });
-
-      fetchGallery(inputQuerry, page)
-        .then((data) => data.hits)
-        .then((response) => {
-          if (response.length === 0) {
-            Notify.failure("Sorry, we couldn't find any matches", {
-              position: "center-center",
-              fontSize: "24px",
-              timeout: 2500,
-              width: "30%",
-            });
-            Loading.remove();
-          } else {
-            this.setState((prevState) => ({
-              gallery: [...prevState.gallery, ...response],
-              status: "resolved",
-            }));
-          }
-        });
-    }
+    return;
   }
 
-  onSubmitForm = (inputQuerry) => {
-    this.setState({ inputQuerry });
+  handleChangeSearch = searchQuery => {
+    if (searchQuery !== this.state.searchQuery) {
+      this.setState({
+        searchQuery,
+        page: 1,
+        images: [],
+      });
+    }
+    return;
   };
 
-  buttonLoadMore = () => {
-    this.setState((prevState) => ({
-      page: prevState.page + 1,
+  toggleLoading = () => {
+    this.setState(({ loading }) => ({
+      loading: !loading,
     }));
   };
 
-  modalImg = (id, img, tags) => {
-    this.setState({ modalImg: { id: id, img: img, tags: tags } });
+  searchImg = async () => {
+    const { searchQuery, page } = this.state;
+    this.toggleLoading();
+
+    try {
+      const data = await fetchGallery(searchQuery, page);
+      this.setState(({ images }) => {
+        return { images: [...images, ...data.hits] };
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      this.toggleLoading();
+    }
   };
 
   toggleModal = () => {
-    this.setState(({ showModal }) => ({
-      showModal: !showModal,
-    }));
+    this.setState(({ showModal }) => ({ showModal: !showModal }));
+  };
+
+  handleImageClick = image => {
+    this.setState({ modalImage: image });
+    this.toggleModal();
+  };
+
+  handlerLoadMore = () => {
+    this.setState(({ page }) => ({ page: page + 1 }));
   };
 
   render() {
-    const { gallery, status, showModal, modalImg } = this.state;
+    const { images, showModal, modalImage, page, loading } = this.state;
 
     return (
       <AppWrap>
-        <Searchbar onSubmit={this.onSubmitForm} />
-        {status === "pending" && Loading.pulse()}
-        {status === "resolved" && Loading.remove()}
-        <ImageGallery
-          response={gallery}
-          toggleModal={this.toggleModal}
-          onImageClick={this.modalImg}
-        />
-        {status === "resolved" && (
-          <Button loadMoreClick={this.buttonLoadMore} />
+        <Searchbar onSubmit={this.handleChangeSearch} />
+        {images.length > 0 && (
+          <ImageGallery images={images} onImageClick={this.handleImageClick} />
         )}
         {showModal && (
-          <Modal closeModal={this.toggleModal} modalImg={modalImg} />
+          <Modal largeImg={modalImage} onClose={this.toggleModal} />
         )}
+        {images.length > 0 && images.length / page === 12 && (
+          <Button onButtonClick={this.handlerLoadMore} />
+        )}
+        {loading && <Loader />}
       </AppWrap>
     );
   }
